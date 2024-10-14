@@ -117,8 +117,8 @@
           lastUpdateTime = currentTime;
 
           const newUserLocation = {
-            lat: 22.3156595,
-            lng: 114.2118365
+            lat: newPosition.coords.latitude,
+            lng: newPosition.coords.longitude
           };
 
           heading = newPosition.coords.heading || heading;
@@ -347,6 +347,7 @@
       <h2 style="text-align:right"> HKRIA</h2>
       <h2></h2>
       <h3> Nearby Restaurants</h3>
+      <p>Anson Area</p>
       <div id="restaurant-list"></div>
     </div>
     <div id="map"></div>
