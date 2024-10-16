@@ -14,9 +14,10 @@
     let markers = [];
     let heading = 0;
     let restaurants = [];
+    let restaurantsGroup = [];
     let searchRadius = 100; // Default search radius in meters
     let currentOpenInfoWindow = null;
-    let infoWindowOpen = false; // Add a flag to track the state of the info window
+    let infoWindowOpen = false;
     let lastUpdateTime = 0;
     let watchId;
     const UPDATE_INTERVAL = 5000; // Minimum interval between updates in milliseconds
@@ -32,51 +33,62 @@
       }
     }
 
+    // Fetch the restaurant group data from the Excel file converted to JSON
+    async function loadRestaurantsGroup() {
+      try {
+        const response = await fetch('restaurants_grp.json');
+        restaurantsGroup = await response.json();
+      } catch (error) {
+        console.error('Error loading restaurant group data:', error);
+      }
+    }
+
     async function initMap() {
-      loadRestaurants().then(() => {
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition((position) => {
-            const userLocation = {
-              lat: position.coords.latitude,
-              lng: position.coords.longitude
-            };
+      await loadRestaurants();
+      await loadRestaurantsGroup();
 
-            // Create the map centered at user's location
-            map = new google.maps.Map(document.getElementById('map'), {
-              center: userLocation,
-              zoom: 16,
-              mapTypeControl: false,
-              streetViewControl: false,
-              fullscreenControl: false
-            });
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition((position) => {
+          const userLocation = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          };
 
-            // Add a marker for user's location
-            userMarker = new google.maps.Marker({
-              position: userLocation,
-              map: map,
-              title: "You are here",
-              icon: {
-                path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-                scale: 5,
-                rotation: heading,
-                fillColor: "#4285F4",
-                fillOpacity: 1,
-                strokeWeight: 2,
-                strokeColor: "#ffffff"
-              }
-            });
-
-            fetchNearbyRestaurants(userLocation);
-
-            // Start tracking user location
-            startGeolocationTracking();
-          }, () => {
-            handleLocationError(true);
+          // Create the map centered at user's location
+          map = new google.maps.Map(document.getElementById('map'), {
+            center: userLocation,
+            zoom: 16,
+            mapTypeControl: false,
+            streetViewControl: false,
+            fullscreenControl: false
           });
-        } else {
-          handleLocationError(false);
-        }
-      });
+
+          // Add a marker for user's location
+          userMarker = new google.maps.Marker({
+            position: userLocation,
+            map: map,
+            title: "You are here",
+            icon: {
+              path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+              scale: 5,
+              rotation: heading,
+              fillColor: "#4285F4",
+              fillOpacity: 1,
+              strokeWeight: 2,
+              strokeColor: "#ffffff"
+            }
+          });
+
+          fetchNearbyRestaurants(userLocation);
+
+          // Start tracking user location
+          startGeolocationTracking();
+        }, () => {
+          handleLocationError(true);
+        });
+      } else {
+        handleLocationError(false);
+      }
     }
 
     function handleLocationError(browserHasGeolocation) {
@@ -87,7 +99,7 @@
     }
 
     function fetchNearbyRestaurants(userLocation) {
-      const nearbyRestaurants = restaurants.filter((restaurant) => {
+      const nearbyRestaurants = searchRadius === 'all' ? restaurants : restaurants.filter((restaurant) => {
         const restaurantLocation = {
           lat: restaurant.Latitude,
           lng: restaurant.Longitude
@@ -95,7 +107,15 @@
         return calculateDistance(userLocation, restaurantLocation) <= searchRadius;
       });
 
-      displayRestaurants(nearbyRestaurants);
+      const nearbyGroupRestaurants = searchRadius === 'all' ? restaurantsGroup : restaurantsGroup.filter((restaurant) => {
+        const restaurantLocation = {
+          lat: restaurant.Latitude,
+          lng: restaurant.Longitude
+        };
+        return calculateDistance(userLocation, restaurantLocation) <= searchRadius;
+      });
+
+      displayRestaurants(nearbyRestaurants, nearbyGroupRestaurants);
     }
 
     function calculateDistance(loc1, loc2) {
@@ -108,7 +128,6 @@
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       return R * c; // Distance in meters
     }
-
 
     function startGeolocationTracking() {
       watchId = navigator.geolocation.watchPosition(debounce((newPosition) => {
@@ -137,17 +156,20 @@
       }
     }
 
-    function displayRestaurants(restaurants) {
+    function displayRestaurants(restaurants, groupRestaurants) {
       const sidebarContent = document.getElementById('restaurant-list');
       sidebarContent.innerHTML = "";
 
       markers.forEach(marker => marker.setMap(null));
       markers = [];
 
+      const bounds = new google.maps.LatLngBounds();
+
+      // Display individual restaurants
       restaurants.forEach((restaurant) => {
         let restaurantDiv = document.createElement('div');
         restaurantDiv.className = 'restaurant-item';
-        restaurantDiv.innerHTML = `<div class="restaurant-name">${restaurant['Restaurant Name']}</div><div class="restaurant-address"> - Cuisines: ${restaurant['Cuisines']} <br> - Price Range: ${restaurant['Price Range']}</div>`;
+        restaurantDiv.innerHTML = `<div class="restaurant-name">${restaurant['Restaurant Name']}</div><div class="restaurant-address">- Cusisines: ${restaurant['Cuisines']} <br> - Price Range: ${restaurant['Price Range']}</div>`;
         sidebarContent.appendChild(restaurantDiv);
 
         let placeLocation = {
@@ -192,7 +214,72 @@
           infoWindowOpen = false;
           startGeolocationTracking();
         });
+
+        bounds.extend(placeLocation);
       });
+
+      // Display group restaurants with yellow color in the sidebar
+      groupRestaurants.forEach((restaurant) => {
+        let restaurantDiv = document.createElement('div');
+        restaurantDiv.className = 'restaurant-item group';
+        restaurantDiv.innerHTML = `<div class="restaurant-name">${restaurant['Restaurant Name']}</div><div class="restaurant-address">${restaurant['Cuisines']} <br> - Price Range: ${restaurant['Price Range']}</div>`;
+        sidebarContent.appendChild(restaurantDiv);
+
+        let placeLocation = {
+          lat: parseFloat(restaurant.Latitude),
+          lng: parseFloat(restaurant.Longitude)
+        };
+
+        let marker = new google.maps.Marker({
+          position: placeLocation,
+          map: map,
+          title: restaurant['Restaurant Name'],
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 7,
+            fillColor: "#318CE7",
+            fillOpacity: 1,
+            strokeWeight: 1,
+            strokeColor: "#318CE7"
+          }
+        });
+
+        markers.push(marker);
+
+        let currentInfoWindow = new google.maps.InfoWindow({
+          content: `<div><strong>${restaurant['Restaurant Name']}</strong><br>Cuisines: ${restaurant['Cuisines']}<br>Price Range: ${restaurant['Price Range']}<br>Location: ${restaurant['Location']}</div>`
+        });
+
+        marker.addListener('click', () => {
+          if (currentOpenInfoWindow) {
+            currentOpenInfoWindow.close();
+          }
+          currentOpenInfoWindow = currentInfoWindow;
+          currentInfoWindow.open(map, marker);
+          infoWindowOpen = true;
+          stopGeolocationTracking();
+        });
+
+        restaurantDiv.addEventListener('click', () => {
+          if (currentOpenInfoWindow) {
+            currentOpenInfoWindow.close();
+          }
+          currentOpenInfoWindow = currentInfoWindow;
+          currentInfoWindow.open(map, marker);
+          map.setCenter(marker.getPosition());
+          infoWindowOpen = true;
+          stopGeolocationTracking();
+        });
+
+        currentInfoWindow.addListener('closeclick', () => {
+          infoWindowOpen = false;
+          startGeolocationTracking();
+        });
+
+        bounds.extend(placeLocation);
+      });
+
+      map.fitBounds(bounds);
     }
 
     function debounce(func, wait) {
@@ -214,7 +301,7 @@
 
       const radiusSelect = document.getElementById("radius-select");
       radiusSelect.addEventListener("change", (event) => {
-        searchRadius = parseInt(event.target.value);
+        searchRadius = event.target.value === 'all' ? 'all' : parseInt(event.target.value);
         if (navigator.geolocation) {
           navigator.geolocation.getCurrentPosition((position) => {
             const userLocation = {
@@ -324,6 +411,10 @@
       background-color: #eaeaea;
     }
 
+    .restaurant-item.group {
+      background-color: #318CE7;
+    }
+
     .restaurant-name {
       font-weight: bold;
       margin-bottom: 5px;
@@ -347,7 +438,6 @@
       <h2 style="text-align:right"> HKRIA</h2>
       <h2></h2>
       <h3> Nearby Restaurants</h3>
-      <p>Mandy/AD Area</p>
       <div id="restaurant-list"></div>
     </div>
     <div id="map"></div>
@@ -356,7 +446,7 @@
       <option value="200">200 meters</option>
       <option value="300">300 meters</option>
       <option value="400">400 meters</option>
-      <option value="150000"> All </option>
+      <option value="all">All</option>
     </select>
   </div>
 </body>
