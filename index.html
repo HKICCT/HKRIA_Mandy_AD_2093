@@ -99,21 +99,29 @@
     }
 
     function fetchNearbyRestaurants(userLocation) {
-      const nearbyRestaurants = searchRadius === 'all' ? restaurants : restaurants.filter((restaurant) => {
-        const restaurantLocation = {
-          lat: restaurant.Latitude,
-          lng: restaurant.Longitude
-        };
-        return calculateDistance(userLocation, restaurantLocation) <= searchRadius;
-      });
+      const displaySelection = document.getElementById("group-selection").value;
+      let nearbyRestaurants = [];
+      let nearbyGroupRestaurants = [];
 
-      const nearbyGroupRestaurants = searchRadius === 'all' ? restaurantsGroup : restaurantsGroup.filter((restaurant) => {
-        const restaurantLocation = {
-          lat: restaurant.Latitude,
-          lng: restaurant.Longitude
-        };
-        return calculateDistance(userLocation, restaurantLocation) <= searchRadius;
-      });
+      if (displaySelection === 'all' || displaySelection === 'individual') {
+        nearbyRestaurants = searchRadius === 'all' ? restaurants : restaurants.filter((restaurant) => {
+          const restaurantLocation = {
+            lat: restaurant.Latitude,
+            lng: restaurant.Longitude
+          };
+          return calculateDistance(userLocation, restaurantLocation) <= searchRadius;
+        });
+      }
+
+      if (displaySelection === 'all' || displaySelection === 'group') {
+        nearbyGroupRestaurants = searchRadius === 'all' ? restaurantsGroup : restaurantsGroup.filter((restaurant) => {
+          const restaurantLocation = {
+            lat: restaurant.Latitude,
+            lng: restaurant.Longitude
+          };
+          return calculateDistance(userLocation, restaurantLocation) <= searchRadius;
+        });
+      }
 
       displayRestaurants(nearbyRestaurants, nearbyGroupRestaurants);
     }
@@ -222,7 +230,7 @@
       groupRestaurants.forEach((restaurant) => {
         let restaurantDiv = document.createElement('div');
         restaurantDiv.className = 'restaurant-item group';
-        restaurantDiv.innerHTML = `<div class="restaurant-name">${restaurant['Restaurant Name']}</div><div class="restaurant-address">${restaurant['Cuisines']} <br> - Price Range: ${restaurant['Price Range']}</div>`;
+        restaurantDiv.innerHTML = `<div class="restaurant-name">${restaurant['Restaurant Name']}</div><div class="restaurant-address">- Cuisines: ${restaurant['Cuisines']} <br> - Price Range: ${restaurant['Price Range']}</div>`;
         sidebarContent.appendChild(restaurantDiv);
 
         let placeLocation = {
@@ -312,6 +320,19 @@
           });
         }
       });
+
+      const groupSelection = document.getElementById("group-selection");
+      groupSelection.addEventListener("change", () => {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition((position) => {
+            const userLocation = {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude
+            };
+            fetchNearbyRestaurants(userLocation);
+          });
+        }
+      });
     };
   </script>
 
@@ -376,6 +397,22 @@
       font-size: 16px;
       border-radius: 4px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      margin-right: 10px;
+    }
+
+    #group-selection {
+      position: absolute;
+      top: 60px;
+      right: 10px;
+      z-index: 3;
+      background-color: #fff;
+      border: none;
+      padding: 10px;
+      cursor: pointer;
+      font-size: 16px;
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      margin-right: 10px;
     }
 
     /* Move the toggle button when the sidebar is open */
@@ -394,7 +431,7 @@
       }
       #map {
         flex: none;
-        height: 100vh;
+        height: 90vh;
       }
       #sidebar:not(.collapsed) ~ #toggle-button {
         left: calc(80% + 10px);
@@ -441,6 +478,11 @@
       <div id="restaurant-list"></div>
     </div>
     <div id="map"></div>
+    <select id="group-selection">
+      <option value="all">Show All</option>
+      <option value="individual">Individual Restaurants Only</option>
+      <option value="group">Group Restaurants Only</option>
+    </select>
     <select id="radius-select">
       <option value="100">100 meters</option>
       <option value="200">200 meters</option>
