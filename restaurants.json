@@ -11233,5 +11233,20 @@
         "Type":"Unique",
         "Cleaned Restaurant Name":"\u9eb5\u5c4b\u5e38\u52dd",
         "Person":"Mandy + AD"
+    },
+    {
+        "Restaurant Name":"Zuma Hong Kong",
+        "Code":"R10039",
+        "Opportunities":"High",
+        "Location":"Shop 601-603, 6\/F & Shop 501-503, 5\/F, LANDMARK ATRIUM, 15 Queen's Road Central",
+        "District":"Central",
+        "Cuisines":"Japanese,Robatayaki",
+        "Price Range":"Above $801",
+        "Timestamp":"2024-10-03 16:14:10",
+        "Longitude":114.1110725,
+        "Latitude":22.3712957,
+        "Type":"Unique",
+        "Cleaned Restaurant Name":"Zuma Hong Kong",
+        "Person":"Jacqueline"
     }
 ]
